@@ -1,0 +1,1722 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>邗江区税务局企业土地面积测量工具 (专业版)</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- 高德地图样式 -->
+    <link rel="stylesheet" href="https://cache.amap.com/lbs/static/main1119.css"/>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+        
+        /* ========== 加载动画样式 ========== */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        #loadingOverlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+        
+        .loading-logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .loading-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .loading-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        
+        /* 进度条容器 */
+        .progress-container {
+            width: 300px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 进度条 */
+        .progress-bar-loading {
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.8) 0%, 
+                rgba(255, 255, 255, 1) 50%, 
+                rgba(255, 255, 255, 0.8) 100%);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        /* 加载文本 */
+        .loading-text {
+            margin-top: 20px;
+            font-size: 13px;
+            opacity: 0.8;
+            min-height: 20px;
+        }
+        
+        /* 加载动画 - 跳动的点 */
+        .loading-dots {
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        .loading-dots span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loading-dots span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        
+        .loading-dots span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+        }
+        
+        /* 旋转的圆环 */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* 控制面板样式优化 */
+        .control-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 380px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 0;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            max-height: calc(100vh - 30px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 面板头部 */
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            border-radius: 16px 16px 0 0;
+        }
+        
+        .panel-header-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .panel-header .map-icon {
+            width: 48px;
+            height: 48px;
+            margin-right: 15px;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+        
+        .panel-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            line-height: 1.3;
+        }
+        
+        .version-badge {
+            font-size: 10px;
+            opacity: 0.9;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+        
+        .toggle-panel {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toggle-panel:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .panel-content {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding: 20px;
+        }
+        
+        .panel-content.collapsed {
+            display: none;
+        }
+        
+        /* 搜索框优化 */
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            pointer-events: none;
+        }
+        
+        #tipinput {
+            padding-left: 45px;
+            border-radius: 12px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s;
+            height: 48px;
+        }
+        
+        #tipinput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.15);
+        }
+        
+        /* 按钮组优化 */
+        .btn-group-custom {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        .btn-custom {
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-custom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.3s;
+        }
+        
+        .btn-custom:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success-custom {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .btn-danger-custom {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+            color: white;
+        }
+        
+        .btn-warning-custom {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* 面积显示卡片 */
+        .area-info {
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-radius: 12px;
+            border: 2px solid #667eea30;
+        }
+        
+        .area-info h5 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #667eea;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .area-display {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .area-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .area-unit {
+            font-size: 14px;
+            color: #6c757d;
+            margin-left: 8px;
+        }
+        
+        /* 单位选择器 */
+        .unit-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .unit-btn {
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .unit-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+        
+        .unit-btn:hover:not(.active) {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+        
+        /* 历史记录卡片优化 */
+        .history-section {
+            margin-top: 20px;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .history-header h5 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+        
+        #historyList {
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 12px;
+            background-color: #f8f9fa;
+            padding: 10px;
+        }
+        
+        #historyList::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #historyList::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        #historyList::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .history-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .history-item:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border-color: #667eea30;
+            transform: translateX(5px);
+        }
+        
+        .history-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .history-item-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            flex: 1;
+        }
+        
+        .history-item-name input {
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            color: #333;
+            width: 100%;
+            padding: 0;
+        }
+        
+        .history-item-name input:focus {
+            outline: none;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .history-item-area {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 14px;
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+        
+        .history-item-actions {
+            display: flex;
+            gap: 5px;
+            margin-left: 10px;
+        }
+        
+        .history-item-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .btn-highlight {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .btn-highlight:hover {
+            background: #ffc107;
+        }
+        
+        .btn-delete {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .btn-delete:hover {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .history-item-remark {
+            margin-top: 10px;
+        }
+        
+        .history-item-remark input {
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .history-item-remark input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.15rem rgba(102, 126, 234, 0.15);
+        }
+        
+        /* 搜索结果 */
+        .search-results {
+            margin-top: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            display: none;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .search-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f1f1;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .search-item:hover {
+            background: linear-gradient(90deg, #667eea10 0%, transparent 100%);
+            padding-left: 20px;
+        }
+        
+        .search-item:last-child {
+            border-bottom: none;
+        }
+        
+        .search-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #333;
+        }
+        
+        .search-address {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        /* 地图样式选择器 */
+        .form-select {
+            border-radius: 12px;
+            border: 2px solid #e0e0e0;
+            padding: 10px 15px;
+            transition: all 0.3s;
+            height: 48px;
+        }
+        
+        .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.15);
+        }
+        
+        .form-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        /* 使用说明优化 */
+        .instructions {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #6c757d;
+            line-height: 1.8;
+            background: linear-gradient(135deg, #667eea05 0%, #764ba205 100%);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .instructions strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .instructions ol {
+            padding-left: 1.5em;
+            margin: 0;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+        }
+        
+        /* 版权信息样式 */
+        .copyright-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #6c757d;
+            border-top: 2px solid #667eea30;
+        }
+        
+        .copyright-info .version {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .copyright-info .author {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .copyright-info .author i {
+            color: #e74c3c;
+            animation: heartbeat 1.5s infinite;
+        }
+        
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .copyright-info .divider {
+            margin: 8px 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #667eea50, transparent);
+        }
+        
+        /* 状态栏优化 */
+        .status-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(33, 37, 41, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, 20px);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+        
+        /* 浮动水印 */
+        .watermark {
+            position: absolute;
+            bottom: 60px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            color: #6c757d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            backdrop-filter: blur(5px);
+        }
+        
+        .watermark i {
+            color: #667eea;
+            margin-right: 5px;
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 999;
+        }
+        
+        .toolbar-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #667eea;
+        }
+        
+        .toolbar-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .control-panel {
+                width: calc(100% - 30px);
+                top: 10px;
+                left: 15px;
+            }
+            
+            .btn-group-custom {
+                grid-template-columns: 1fr;
+            }
+            
+            .toolbar {
+                flex-direction: row;
+                top: auto;
+                bottom: 80px;
+                right: 15px;
+                left: 15px;
+                justify-content: center;
+            }
+            
+            .watermark {
+                display: none;
+            }
+            
+            .loading-title {
+                font-size: 20px;
+            }
+            
+            .progress-container {
+                width: 250px;
+            }
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+        
+        .empty-state p {
+            margin: 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载动画遮罩层 -->
+    <div id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="fas fa-map-marked-alt" style="font-size: 60px; color: white;"></i>
+            </div>
+            <div class="loading-title">土地面积测量工具</div>
+            <div class="loading-subtitle">国家税务总局扬州市邗江区税务局</div>
+            
+            <div class="progress-container">
+                <div class="progress-bar-loading" id="progressBar"></div>
+            </div>
+            
+            <div class="loading-text">
+                <span id="loadingText">正在初始化</span>
+                <span class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div id="container"></div>
+    
+    <div class="control-panel">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <img src="shuihui.png" class="map-icon" alt="税务徽标" onerror="this.style.display='none'">
+                <div>
+                    <h2>国家税务总局扬州市税务局<br>土地面积测量工具</h2>
+                    <div class="version-badge">
+                        <i class="fas fa-certificate"></i>v1.0.0
+                    </div>
+                </div>
+            </div>
+            <button class="toggle-panel" id="togglePanel">
+                <i class="fas fa-chevron-up"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <!-- 搜索框 -->
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="tipinput" class="form-control" placeholder="输入企业名称或地址搜索...">
+                <div class="search-results" id="searchResults"></div>
+            </div>
+
+            <!-- 地图样式选择器 -->
+            <div class="mb-3">
+                <label for="mapStyleSelector" class="form-label">
+                    <i class="fas fa-palette"></i> 地图样式
+                </label>
+                <select class="form-select" id="mapStyleSelector">
+                    <option value="amap://styles/normal">标准地图</option>
+                    <option value="amap://styles/light" selected>银色风格 (推荐)</option>
+                    <option value="amap://styles/dark">深色模式</option>
+                    <option value="satellite">卫星地图</option>
+                    <option value="amap://styles/fresh">清新蓝调</option>
+                    <option value="amap://styles/darkblue">极夜蓝</option>
+                    <option value="amap://styles/blue">靛青蓝</option>
+                    <option value="amap://styles/macaron">马卡龙</option>
+                    <option value="amap://styles/graffiti">涂鸦风格</option>
+                    <option value="amap://styles/whitesmoke">远山黛</option>
+                    <option value="amap://styles/grey">锖青黑</option>
+                </select>
+            </div>
+            
+            <!-- 操作按钮组 -->
+            <div class="btn-group-custom">
+                <button id="drawArea" class="btn-custom btn-primary-custom">
+                    <i class="fas fa-draw-polygon"></i> 绘制区域
+                </button>
+                <button id="undoLast" class="btn-custom btn-warning-custom">
+                    <i class="fas fa-undo"></i> 撤销上一步
+                </button>
+                <button id="saveData" class="btn-custom btn-success-custom">
+                    <i class="fas fa-save"></i> 保存数据
+                </button>
+                <button id="clearAll" class="btn-custom btn-danger-custom">
+                    <i class="fas fa-trash-alt"></i> 全部清除
+                </button>
+            </div>
+            
+            <!-- 总面积显示 -->
+            <div class="area-info" id="totalAreaInfo" style="display: none;">
+                <h5>
+                    <i class="fas fa-chart-area"></i> 总面积统计
+                </h5>
+                <div class="area-display">
+                    <div>
+                        <span class="area-value" id="totalAreaValue">0</span>
+                        <span class="area-unit" id="totalAreaUnit">平方米</span>
+                        </div>
+                </div>
+                <div class="unit-selector">
+                    <button class="unit-btn active" data-unit="sqm">m²</button>
+                    <button class="unit-btn" data-unit="mu">亩</button>
+                    <button class="unit-btn" data-unit="hectare">公顷</button>
+                    <button class="unit-btn" data-unit="sqkm">km²</button>
+                </div>
+            </div>
+            <!-- 历史记录 -->
+        <div class="history-section">
+            <div class="history-header">
+                <h5><i class="fas fa-history"></i> 测量记录</h5>
+                <button id="exportHistory" class="btn-custom btn-success-custom" style="padding: 6px 12px; font-size: 12px;">
+                    <i class="fas fa-file-csv"></i> 导出
+                </button>
+            </div>
+            <div id="historyList">
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>暂无测量记录<br>点击"绘制区域"开始测量</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="instructions">
+            <strong><i class="fas fa-info-circle"></i> 使用说明</strong>
+            <ol>
+                <li>搜索框定位到目标地点</li>
+                <li>点击"绘制区域"开始测量</li>
+                <li>单击添加点,双击完成绘制</li>
+                <li>可重复绘制多个区域</li>
+                <li>鼠标悬停可高亮对应区域</li>
+                <li>支持撤销、删除、重命名</li>
+                <li>点击"保存数据"可本地保存</li>
+                <li>导出CSV获取详细报表</li>
+            </ol>
+        </div>
+
+        <!-- 版权信息 -->
+        <div class="copyright-info">
+            <div class="version">
+                <i class="fas fa-code-branch"></i> 版本 v1.0.0
+            </div>
+            <div class="divider"></div>
+            <div class="author">
+                测量数据仅供参考，如有错误请指正 <i class="fas fa-heart"></i> 
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; opacity: 0.7;">
+                © 2025 扬州市邗江区税务局 · All Rights Reserved.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 右侧工具栏 -->
+<div class="toolbar">
+    <button class="toolbar-btn" id="loadData" title="加载数据">
+        <i class="fas fa-folder-open"></i>
+    </button>
+    <button class="toolbar-btn" id="captureMap" title="截图">
+        <i class="fas fa-camera"></i>
+    </button>
+    <button class="toolbar-btn" id="fullScreen" title="全屏">
+        <i class="fas fa-expand"></i>
+    </button>
+</div>
+
+<!-- 浮动水印 -->
+<div class="watermark">
+    <i class="fas fa-code"></i> v1.0.0 Professional Edition
+</div>
+
+<div class="status-bar" id="statusBar">
+    <i class="fas fa-info-circle"></i> <span id="statusText">准备就绪</span>
+</div>
+
+<!-- 高德地图API -->
+<script> 
+    window._AMapSecurityConfig = {
+        securityJsCode: 'a048cfa884168ed8300bf427776c0b70',
+    }
+</script>
+<script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=d7b7da2e7c5a6b2bd81fddd096a40713"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+<script type="text/javascript">
+    // ========== 加载进度管理 ==========
+    let loadingProgress = 0;
+    const loadingSteps = [
+        { progress: 20, text: '正在加载地图资源' },
+        { progress: 40, text: '正在初始化地图引擎' },
+        { progress: 60, text: '正在加载插件模块' },
+        { progress: 80, text: '正在配置界面组件' },
+        { progress: 100, text: '加载完成' }
+    ];
+    
+    let currentStepIndex = 0;
+    
+    function updateLoadingProgress(progress, text) {
+        const progressBar = document.getElementById('progressBar');
+        const loadingText = document.getElementById('loadingText');
+        
+        if (progressBar) {
+            progressBar.style.width = progress + '%';
+        }
+        if (loadingText && text) {
+            loadingText.textContent = text;
+        }
+    }
+    
+    function nextLoadingStep() {
+        if (currentStepIndex < loadingSteps.length) {
+            const step = loadingSteps[currentStepIndex];
+            updateLoadingProgress(step.progress, step.text);
+            currentStepIndex++;
+        }
+    }
+    
+    function hideLoadingOverlay() {
+        updateLoadingProgress(100, '加载完成');
+        setTimeout(() => {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                // 完全隐藏后移除元素
+                setTimeout(() => {
+                    overlay.remove();
+                }, 500);
+            }
+        }, 300);
+    }
+    
+    // 初始加载步骤
+    nextLoadingStep(); // 20% - 加载地图资源
+    
+    // --- 全局变量 ---
+    var map = null;
+    var mouseTool = null;
+    var placeSearch = null;
+    var autoComplete = null;
+    
+    var polygons = [];
+    var markers = [];
+    var historyData = [];
+    
+    var currentUnit = 'sqm';
+    var totalAreaInSquareMeters = 0;
+    var regionCounter = 0;
+    var highlightedPolygon = null;
+    
+    const regionColors = [
+        '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe',
+        '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0', '#330867'
+    ];
+
+    // --- 初始化地图 ---
+    nextLoadingStep(); // 40% - 初始化地图引擎
+    
+    map = new AMap.Map("container", {
+        resizeEnable: true,
+        zoom: 12,
+        center: [119.398015, 32.377528],
+        mapStyle: "amap://styles/light"
+    });
+    
+    // 地图加载完成事件
+    map.on('complete', function() {
+        nextLoadingStep(); // 60% - 加载插件模块
+        initializePlugins();
+    });
+
+    // --- 初始化插件 ---
+    function initializePlugins() {
+        AMap.plugin(['AMap.PlaceSearch','AMap.AutoComplete', 'AMap.MouseTool', 'AMap.GeometryUtil'], function(){
+            placeSearch = new AMap.PlaceSearch({ map: map, pageSize: 5 });
+            autoComplete = new AMap.AutoComplete({ input: "tipinput", city: "扬州", citylimit: true });
+            mouseTool = new AMap.MouseTool(map);
+            
+            autoComplete.on("select", handleSearchSelect);
+            mouseTool.on('draw', handleDrawFinish);
+            
+            nextLoadingStep(); // 80% - 配置界面组件
+            initializeUI();
+        });
+    }
+    
+    // --- 初始化UI ---
+    function initializeUI() {
+        // 事件绑定
+        document.getElementById('drawArea').addEventListener('click', startDrawing);
+        document.getElementById('clearAll').addEventListener('click', clearAll);
+        document.getElementById('undoLast').addEventListener('click', undoLast);
+        document.getElementById('saveData').addEventListener('click', saveData);
+        document.getElementById('loadData').addEventListener('click', loadData);
+        document.getElementById('exportHistory').addEventListener('click', exportHistoryToCSV);
+        document.getElementById('captureMap').addEventListener('click', captureMap);
+        document.getElementById('fullScreen').addEventListener('click', toggleFullScreen);
+        document.getElementById('togglePanel').addEventListener('click', togglePanel);
+        document.getElementById('tipinput').addEventListener('input', handleSearchInput);
+        
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.control-panel')) {
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        });
+        
+        document.querySelectorAll('.unit-btn').forEach(button => {
+            button.addEventListener('click', handleUnitChange);
+        });
+        
+        document.getElementById('mapStyleSelector').addEventListener('change', function() {
+            const selectedStyle = this.value;
+            map.setMapStyle(selectedStyle);
+            showStatus(`地图样式已切换`);
+        });
+        
+        // 初始化完成
+        renderHistoryList();
+        
+        // 隐藏加载动画
+        hideLoadingOverlay();
+        
+        // 显示欢迎信息
+        setTimeout(() => {
+            showStatus("已就绪，可以开始测量！");
+        }, 800);
+    }
+
+    // --- 功能函数 ---
+
+    function togglePanel() {
+        const content = document.querySelector('.panel-content');
+        const icon = document.querySelector('.toggle-panel i');
+        content.classList.toggle('collapsed');
+        icon.classList.toggle('fa-chevron-up');
+        icon.classList.toggle('fa-chevron-down');
+    }
+
+    function handleSearchSelect(e) {
+        document.getElementById('searchResults').style.display = 'none';
+        placeSearch.setCity(e.poi.adcode);
+        placeSearch.search(e.poi.name, (status, result) => {
+            if (status === 'complete' && result.poiList.pois.length > 0) {
+                const poi = result.poiList.pois[0];
+                if (poi && poi.location) {
+                    map.setZoom(17);
+                    map.setCenter(poi.location);
+                    showStatus(`已定位到: ${poi.name}`);
+                }
+            }
+        });
+    }
+    
+    function handleSearchInput(e) {
+        const keyword = e.target.value.trim();
+        const searchResults = document.getElementById('searchResults');
+        if (keyword.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        autoComplete.search(keyword, (status, result) => {
+            if (status === 'complete' && result.tips) {
+                let html = '';
+                result.tips.forEach(tip => {
+                    html += `<div class="search-item" data-name="${tip.name}" data-adcode="${tip.adcode}">
+                                 <div class="search-name">${tip.name}</div>
+                                 <div class="search-address">${tip.district || ''}</div>
+                             </div>`;
+                });
+                searchResults.innerHTML = html;
+                searchResults.style.display = 'block';
+
+                Array.from(searchResults.getElementsByClassName('search-item')).forEach(item => {
+                    item.addEventListener('click', function() {
+                        const name = this.getAttribute('data-name');
+                        const adcode = this.getAttribute('data-adcode');
+                        document.getElementById('tipinput').value = name;
+                        handleSearchSelect({poi: {name: name, adcode: adcode}});
+                    });
+                });
+            } else {
+                searchResults.style.display = 'none';
+            }
+        });
+    }
+
+    function startDrawing() {
+        const color = regionColors[regionCounter % regionColors.length];
+        mouseTool.polygon({
+            strokeColor: color,
+            strokeOpacity: 0.9,
+            strokeWeight: 3,
+            fillColor: color,
+            fillOpacity: 0.3,
+            extData: { id: Date.now() }
+        });
+        showStatus("开始绘制，单击添加点，双击完成");
+    }
+
+    function handleDrawFinish(event) {
+        const polygon = event.obj;
+        mouseTool.close();
+        
+        const area = AMap.GeometryUtil.ringArea(polygon.getPath());
+        if (area === 0) {
+            map.remove(polygon);
+            showStatus("绘制无效，面积为0");
+            return;
+        }
+        
+        regionCounter++;
+        polygons.push(polygon);
+        totalAreaInSquareMeters += area;
+        
+        const historyItem = {
+            id: polygon.getExtData().id,
+            name: `区域 ${regionCounter}`,
+            areaSqm: area,
+            remark: '',
+            color: regionColors[(regionCounter - 1) % regionColors.length]
+        };
+        historyData.push(historyItem);
+
+        addAreaMarker(polygon, area, historyItem.name);
+        updateTotalAreaDisplay();
+        renderHistoryList();
+        
+        showStatus(`区域 ${regionCounter} 测量完成: ${formatArea(area, currentUnit)}`);
+    }
+
+    function undoLast() {
+        if (polygons.length === 0) {
+            showStatus("没有可撤销的操作");
+            return;
+        }
+        
+        const lastPolygon = polygons.pop();
+        const lastMarker = markers.pop();
+        const lastHistory = historyData.pop();
+        
+        map.remove(lastPolygon);
+        map.remove(lastMarker);
+        
+        totalAreaInSquareMeters -= lastHistory.areaSqm;
+        regionCounter--;
+        
+        updateTotalAreaDisplay();
+        renderHistoryList();
+        showStatus("已撤销上一次操作");
+    }
+
+    function clearAll() {
+        if (polygons.length === 0) {
+            showStatus("当前没有测量数据");
+            return;
+        }
+        
+        if (!confirm('确定要清除所有测量数据吗？')) {
+            return;
+        }
+        
+        mouseTool.close(true);
+        map.remove(polygons);
+        map.remove(markers);
+        
+        polygons = [];
+        markers = [];
+        historyData = [];
+        totalAreaInSquareMeters = 0;
+        regionCounter = 0;
+        
+        updateTotalAreaDisplay();
+        renderHistoryList();
+        showStatus("已清除所有数据");
+    }
+    
+    function deleteRegion(id) {
+        const index = historyData.findIndex(h => h.id === id);
+        if (index === -1) return;
+        
+        const item = historyData[index];
+        const polygon = polygons.find(p => p.getExtData().id === id);
+        const marker = markers.find(m => m.getExtData().polygonId === id);
+        
+        if (polygon) {
+            map.remove(polygon);
+            polygons = polygons.filter(p => p.getExtData().id !== id);
+        }
+        
+        if (marker) {
+            map.remove(marker);
+            markers = markers.filter(m => m.getExtData().polygonId !== id);
+        }
+        
+        totalAreaInSquareMeters -= item.areaSqm;
+        historyData.splice(index, 1);
+        
+        updateTotalAreaDisplay();
+        renderHistoryList();
+        showStatus(`已删除 ${item.name}`);
+    }
+    
+    function highlightRegion(id) {
+        const polygon = polygons.find(p => p.getExtData().id === id);
+        if (!polygon) return;
+        
+        // 取消之前的高亮
+        if (highlightedPolygon) {
+            const prevItem = historyData.find(h => h.id === highlightedPolygon.getExtData().id);
+            if (prevItem) {
+                highlightedPolygon.setOptions({
+                    strokeWeight: 3,
+                    fillOpacity: 0.3
+                });
+            }
+        }
+        
+        // 应用新的高亮
+        polygon.setOptions({
+            strokeWeight: 5,
+            fillOpacity: 0.5
+        });
+        
+        highlightedPolygon = polygon;
+        map.setFitView([polygon]);
+    }
+    
+    function unhighlightRegion() {
+        if (highlightedPolygon) {
+            const item = historyData.find(h => h.id === highlightedPolygon.getExtData().id);
+            if (item) {
+                highlightedPolygon.setOptions({
+                    strokeWeight: 3,
+                    fillOpacity: 0.3
+                });
+            }
+            highlightedPolygon = null;
+        }
+    }
+    
+    function handleUnitChange() {
+        document.querySelectorAll('.unit-btn').forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        currentUnit = this.getAttribute('data-unit');
+        
+        updateTotalAreaDisplay();
+        updateAllMarkers();
+        renderHistoryList();
+    }
+
+    function addAreaMarker(polygon, areaSqm, name) {
+        const text = new AMap.Text({
+            text: `${name}: ${formatArea(areaSqm, currentUnit)}`,
+            position: polygon.getBounds().getCenter(),
+            style: {
+                'background': 'linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%)',
+                'border': 'none',
+                'color': 'white',
+                'padding': '8px 12px',
+                'border-radius': '8px',
+                'font-size': '12px',
+                'font-weight': '600',
+                'box-shadow': '0 2px 8px rgba(0,0,0,0.2)'
+            },
+            extData: { 
+                polygonId: polygon.getExtData().id,
+                areaSqm: areaSqm
+            }
+        });
+        markers.push(text);
+        map.add(text);
+    }
+
+    function updateAllMarkers() {
+        markers.forEach(marker => {
+            const areaSqm = marker.getExtData().areaSqm;
+            const polygonId = marker.getExtData().polygonId;
+            const historyItem = historyData.find(h => h.id === polygonId);
+            if(historyItem){
+                marker.setText(`${historyItem.name}: ${formatArea(areaSqm, currentUnit)}`);
+            }
+        });
+    }
+    
+    function updateTotalAreaDisplay() {
+        const areaValueEl = document.getElementById('totalAreaValue');
+        const areaUnitEl = document.getElementById('totalAreaUnit');
+        
+        const convertedArea = convertArea(totalAreaInSquareMeters, currentUnit);
+        const unitText = getUnitText(currentUnit);
+        
+        areaValueEl.textContent = formatNumber(convertedArea);
+        areaUnitEl.textContent = unitText;
+        document.getElementById('totalAreaInfo').style.display = totalAreaInSquareMeters > 0 ? 'block' : 'none';
+    }
+
+    function renderHistoryList() {
+        const listEl = document.getElementById('historyList');
+        if (historyData.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>暂无测量记录<br>点击"绘制区域"开始测量</p>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = '';
+        historyData.forEach((item, index) => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'history-item';
+            itemEl.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-item-name">
+                        <input type="text" value="${item.name}" data-id="${item.id}" class="name-input">
+                    </div>
+                    <div class="history-item-area">${formatArea(item.areaSqm, currentUnit)}</div>
+                    <div class="history-item-actions">
+                        <button class="history-item-btn btn-highlight" data-id="${item.id}" title="高亮显示">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="history-item-btn btn-delete" data-id="${item.id}" title="删除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="history-item-remark">
+                    <input type="text" class="form-control form-control-sm" placeholder="添加备注 (如: 企业名称、地块用途)" value="${item.remark}" data-id="${item.id}">
+                </div>
+            `;
+            listEl.appendChild(itemEl);
+        });
+        
+        // 绑定事件
+        listEl.querySelectorAll('.name-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const id = parseInt(e.target.dataset.id);
+                const historyItem = historyData.find(h => h.id === id);
+                if (historyItem) {
+                    historyItem.name = e.target.value;
+                    updateAllMarkers();
+                    showStatus(`已更新名称`);
+                }
+            });
+        });
+        
+        listEl.querySelectorAll('.history-item-remark input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const id = parseInt(e.target.dataset.id);
+                const historyItem = historyData.find(h => h.id === id);
+                if (historyItem) {
+                    historyItem.remark = e.target.value;
+                }
+            });
+        });
+        
+        listEl.querySelectorAll('.btn-highlight').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                highlightRegion(id);
+            });
+        });
+        
+        listEl.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id);
+                if (confirm('确定要删除这个区域吗？')) {
+                    deleteRegion(id);
+                }
+            });
+        });
+        
+        // 鼠标悬停高亮
+        listEl.querySelectorAll('.history-item').forEach(item => {
+            const btns = item.querySelectorAll('.history-item-btn');
+            if (btns.length > 0) {
+                const id = parseInt(btns[0].dataset.id);
+                item.addEventListener('mouseenter', () => highlightRegion(id));
+                item.addEventListener('mouseleave', () => unhighlightRegion());
+            }
+        });
+    }
+
+    function saveData() {
+        if (historyData.length === 0) {
+            showStatus("没有可保存的数据");
+            return;
+        }
+        
+        const data = {
+            version: '2.0.0',
+            timestamp: new Date().toISOString(),
+            totalArea: totalAreaInSquareMeters,
+            regionCounter: regionCounter,
+            regions: historyData,
+            polygonPaths: polygons.map(p => ({
+                id: p.getExtData().id,
+                path: p.getPath().map(point => [point.lng, point.lat])
+            }))
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `土地测量数据_v2.0.0_${new Date().toLocaleString().replace(/[\/:]/g, '-')}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        showStatus("数据已保存到本地");
+    }
+    
+    function loadData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    
+                    // 清除现有数据
+                    clearAll();
+                    
+                    // 恢复数据
+                    totalAreaInSquareMeters = data.totalArea;
+                    regionCounter = data.regionCounter;
+                    historyData = data.regions;
+                    
+                    // 重新绘制多边形
+                    data.polygonPaths.forEach((pathData, index) => {
+                        const historyItem = historyData.find(h => h.id === pathData.id);
+                        if (!historyItem) return;
+                        
+                        const path = pathData.path.map(p => new AMap.LngLat(p[0], p[1]));
+                        const polygon = new AMap.Polygon({
+                            path: path,
+                            strokeColor: historyItem.color || regionColors[index % regionColors.length],
+                            strokeOpacity: 0.9,
+                            strokeWeight: 3,
+                            fillColor: historyItem.color || regionColors[index % regionColors.length],
+                            fillOpacity: 0.3,
+                            extData: { id: pathData.id }
+                        });
+                        
+                        map.add(polygon);
+                        polygons.push(polygon);
+                        
+                        addAreaMarker(polygon, historyItem.areaSqm, historyItem.name);
+                    });
+                    
+                    updateTotalAreaDisplay();
+                    renderHistoryList();
+                    map.setFitView();
+                    
+                    showStatus(`数据加载成功 (版本: ${data.version || '1.0'})`);
+                } catch (error) {
+                    showStatus("数据加载失败，文件格式错误");
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+function exportHistoryToCSV() {
+    if (historyData.length === 0) {
+        showStatus("没有可导出的记录");
+        return;
+    }
+
+    let csvContent = "区域名称,备注,面积(平方米),面积(亩),面积(公顷),面积(平方千米)\r\n";
+
+    historyData.forEach(item => {
+        const row = [
+            `"${item.name}"`,
+            `"${item.remark.replace(/"/g, '""')}"`,
+            item.areaSqm.toFixed(2),
+            convertArea(item.areaSqm, 'mu').toFixed(4),
+            convertArea(item.areaSqm, 'hectare').toFixed(4),
+            convertArea(item.areaSqm, 'sqkm').toFixed(8)
+        ].join(",");
+        csvContent += row + "\r\n";
+    });
+
+    const totalRow = [
+        '"总计"',
+        '""',
+        totalAreaInSquareMeters.toFixed(2),
+        convertArea(totalAreaInSquareMeters, 'mu').toFixed(4),
+        convertArea(totalAreaInSquareMeters, 'hectare').toFixed(4),
+        convertArea(totalAreaInSquareMeters, 'sqkm').toFixed(8)
+    ].join(",");
+    csvContent += totalRow + "\r\n";
+
+    // 在 pywebview 环境中，使用 window.pywebview.api 来保存文件
+    if (window.pywebview && window.pywebview.api) {
+        const fileName = `土地测量报表_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`;
+        window.pywebview.api.save_csv_file(fileName, csvContent).then(() => {
+            showStatus("报表已导出到应用程序目录");
+        }).catch((error) => {
+            console.error('导出失败:', error);
+            showStatus("导出失败，请重试");
+        });
+    } else {
+        // 备用方案：在浏览器环境中使用原来的下载方式
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `土地测量报表_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        
+        showStatus("报表已下载");
+    }
+}
+    
+    function captureMap() {
+        showStatus("截图功能需要浏览器支持，请使用系统截图工具");
+    }
+    
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            showStatus("已进入全屏模式");
+        } else {
+            document.exitFullscreen();
+            showStatus("已退出全屏模式");
+        }
+    }
+
+    // --- 辅助函数 ---
+    function convertArea(areaSqm, unit) {
+        switch(unit) {
+            case 'sqm': return areaSqm;
+            case 'mu': return areaSqm * 0.0015;
+            case 'hectare': return areaSqm / 10000;
+            case 'sqkm': return areaSqm / 1000000;
+            default: return areaSqm;
+        }
+    }
+    
+    function getUnitText(unit) {
+        const units = { sqm: '平方米', mu: '亩', hectare: '公顷', sqkm: '平方千米' };
+        return units[unit] || '平方米';
+    }
+
+    function formatNumber(num) {
+        if (num === 0) return '0';
+        if (num > 0.0001) {
+            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+        }
+        return num.toExponential(4);
+    }
+    
+    function formatArea(areaSqm, unit) {
+        const converted = convertArea(areaSqm, unit);
+        return `${formatNumber(converted)} ${getUnitText(unit)}`;
+    }
+    
+    function showStatus(message, duration = 3000) {
+        const statusBar = document.getElementById('statusBar');
+        const statusText = document.getElementById('statusText');
+        
+        statusText.textContent = message;
+        statusBar.style.display = 'block';
+        
+        setTimeout(() => {
+            statusBar.style.display = 'none';
+        }, duration);
+    }
+    </script>
